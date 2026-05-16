@@ -1,0 +1,13 @@
+# Python Backend Specifics
+backend/venv/
+**/__pycache__/
+*.pyc
+
+# Root Environment Variables & Secrets
+.env
+backend/.env
+frontend/.env.local
+
+# OS operating system files
+.DS_Store
+Thumbs.db
