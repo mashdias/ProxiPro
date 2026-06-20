@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 from contextlib import asynccontextmanager
 from database import init_db
-from routers import auth, vendors, admin
+from routers import auth, vendors, admin, customers, payments, bookings, reviews, chat
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,7 +26,7 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,6 +39,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(vendors.router, prefix="/api/vendors", tags=["Vendors"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(customers.router, prefix="/api/customers", tags=["Customers"])
+app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
+app.include_router(bookings.router, prefix="/api/bookings", tags=["Bookings"])
+app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])
+app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 
 @app.get("/api/health", tags=["Health"])
 async def health_check():

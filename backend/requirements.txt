@@ -5,3 +5,6 @@ pydantic[email]
 python-dotenv
 passlib[bcrypt]
 python-jose[cryptography]
+stripe
+httpx
+google-genai

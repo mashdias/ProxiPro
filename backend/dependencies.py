@@ -20,8 +20,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         
         if email is None or role is None or user_id is None:
             raise credentials_exception
-            
-        return {"email": email, "role": role, "user_id": user_id}
+        return {"email": email, "role": role, "user_id": user_id, "_id": user_id, "fullName": payload.get("name", "Unknown")}
     except JWTError:
         raise credentials_exception
 

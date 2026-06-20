@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Literal
+from datetime import datetime
 
 class PointLocation(BaseModel):
     type: Literal['Point'] = 'Point'
@@ -39,6 +40,7 @@ class UserCreate(BaseModel):
     fullName: str
     email: EmailStr
     password: str
+    phoneNumber: str
     role: Literal['customer', 'vendor', 'admin'] = 'customer'
 
 class UserLogin(BaseModel):
@@ -52,6 +54,9 @@ class UserInDB(BaseModel):
     hashed_password: str
     role: str
     vendorProfile: Optional[VendorProfile] = None
+    reset_otp: Optional[str] = None
+    reset_otp_expiry: Optional[datetime] = None
+    profile_picture: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: str
@@ -59,7 +64,19 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: str
     vendorProfile: Optional[VendorProfile] = None
+    profile_picture: Optional[str] = None
 
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+
+class GoogleAuthRequest(BaseModel):
+    token: str

@@ -2,13 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 import os
 import shutil
 import uuid
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 from bson import ObjectId
 from database import users_collection
 from dependencies import get_current_user
+from datetime import datetime, timezone
 
 router = APIRouter()
+
+class ServiceItem(BaseModel):
+    name: str
+    price: float
 
 class VendorProfileUpdate(BaseModel):
     businessName: str
@@ -20,6 +25,10 @@ class VendorProfileUpdate(BaseModel):
     whatsapp: Optional[str] = None
     facebook: Optional[str] = None
     profilePhoto: Optional[str] = None
+    services: Optional[List[ServiceItem]] = []
+    availableDays: Optional[List[str]] = []
+    startTime: Optional[str] = None
+    endTime: Optional[str] = None
 
 @router.get("/profile")
 async def get_vendor_profile(current_user: dict = Depends(get_current_user)):
@@ -45,7 +54,12 @@ async def get_vendor_profile(current_user: dict = Depends(get_current_user)):
         "phoneNumber": vendor_profile.get("phoneNumber", ""),
         "whatsapp": vendor_profile.get("whatsapp", ""),
         "facebook": vendor_profile.get("facebook", ""),
-        "profilePhoto": vendor_profile.get("profilePhoto", "")
+        "profilePhoto": vendor_profile.get("profilePhoto") or user.get("profile_picture", ""),
+        "isPremium": vendor_profile.get("isPremium", False),
+        "services": vendor_profile.get("services", []),
+        "availableDays": vendor_profile.get("availableDays", []),
+        "startTime": vendor_profile.get("startTime", ""),
+        "endTime": vendor_profile.get("endTime", "")
     }
 
 @router.put("/profile")
@@ -69,11 +83,24 @@ async def update_vendor_profile(profile: VendorProfileUpdate, current_user: dict
         "phoneNumber": profile.phoneNumber,
         "whatsapp": profile.whatsapp,
         "facebook": profile.facebook,
-        "profilePhoto": profile.profilePhoto
+        "profilePhoto": profile.profilePhoto,
+        "services": [s.dict() for s in profile.services],
+        "availableDays": profile.availableDays,
+        "startTime": profile.startTime,
+        "endTime": profile.endTime
     }
 
     # 3. Save: Update the user's document in MongoDB
     user_id = ObjectId(current_user.get("user_id"))
+    
+    # Preserve isPremium status
+    user = await users_collection.find_one({"_id": user_id})
+    vendor_profile = user.get("vendorProfile") if user else None
+    if not isinstance(vendor_profile, dict):
+        vendor_profile = {}
+    is_premium = vendor_profile.get("isPremium", False)
+    vendor_profile_data["isPremium"] = is_premium
+
     result = await users_collection.update_one(
         {"_id": user_id},
         {"$set": {"vendorProfile": vendor_profile_data}}
@@ -122,7 +149,13 @@ async def search_vendors(lat: float, lng: float, radius_km: float = 5.0, categor
     if category and category.lower() != "all":
         query["vendorProfile.category"] = category
 
-    cursor = users_collection.find(query, {"password": 0})
+    projection = {
+        "password": 0,
+        "email": 0,
+        "customerProfile": 0,
+        "savedVendors": 0
+    }
+    cursor = users_collection.find(query, projection)
     vendors = await cursor.to_list(length=100)
     
     results = []
@@ -132,6 +165,38 @@ async def search_vendors(lat: float, lng: float, radius_km: float = 5.0, categor
         
     return results
 
+@router.post("/upgrade")
+async def upgrade_vendor(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "vendor":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only vendors can upgrade")
+    
+    user_id = ObjectId(current_user.get("user_id"))
+    result = await users_collection.update_one(
+        {"_id": user_id},
+        {"$set": {
+            "vendorProfile.isPremium": True,
+            "vendorProfile.premiumPaymentDate": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+    return {"message": "Successfully upgraded to premium!"}
+
 @router.get("/{vendor_id}")
 async def get_vendor(vendor_id: str):
-    return {"message": f"Get vendor details for {vendor_id}"}
+    try:
+        projection = {
+            "password": 0,
+            "email": 0,
+            "customerProfile": 0,
+            "savedVendors": 0
+        }
+        user = await users_collection.find_one({"_id": ObjectId(vendor_id), "role": "vendor"}, projection)
+        if not user:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+        
+        user["_id"] = str(user["_id"])
+        return user
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid vendor ID")

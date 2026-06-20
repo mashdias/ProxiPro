@@ -14,6 +14,9 @@ db = client.micro_business_db
 # Collections
 vendors_collection = db.get_collection("vendors")
 users_collection = db.get_collection("usersTree")
+settings_collection = db.get_collection("settings")
+bookings_collection = db.get_collection("bookings")
+reviews_collection = db.get_collection("reviews")
 
 async def init_db():
     try:
