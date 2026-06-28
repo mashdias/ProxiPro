@@ -30,6 +30,13 @@ class VendorProfileUpdate(BaseModel):
     startTime: Optional[str] = None
     endTime: Optional[str] = None
 
+@router.get("/categories")
+async def get_vendor_categories():
+    categories = await users_collection.distinct("vendorProfile.category", {"vendorProfile.category": {"$ne": None, "$ne": ""}})
+    # Filter out any non-string categories and sort them
+    valid_categories = sorted(list(set([cat for cat in categories if isinstance(cat, str)])))
+    return valid_categories
+
 @router.get("/profile")
 async def get_vendor_profile(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "vendor":
